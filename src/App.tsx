@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { useInView } from "@/hooks/useInView";
+import { useScrollProgress } from "@/hooks/useScrollProgress";
+import { useAnimatedCounter } from "@/hooks/useAnimatedCounter";
+import { useMousePosition } from "@/hooks/useMousePosition";
 
 type Service = {
   id: string;
@@ -8,7 +12,7 @@ type Service = {
   tone: string;
 };
 
-type Stat = { value: string; label: string; hint?: string };
+type Stat = { value: string; label: string; hint?: string; num?: number; suffix?: string };
 type Step = { num: string; title: string; text: string; duration: string };
 type PortfolioItem = {
   id: string;
@@ -23,9 +27,9 @@ type Tool = { name: string; category: string; letter: string; color: string };
 type Faq = { q: string; a: string };
 
 const stats: Stat[] = [
-  { value: "3", label: "Проекта в портфолио", hint: "личные и учебные работы" },
-  { value: "5+", label: "Технологий в стеке", hint: "React, TS, Tailwind, Vite, Blender" },
-  { value: "24ч", label: "Ответ на заявку", hint: "в будни — быстрее" },
+  { value: "3", label: "Проекта в портфолио", hint: "личные и учебные работы", num: 3 },
+  { value: "5+", label: "Технологий в стеке", hint: "React, TS, Tailwind, Vite, Blender", num: 5, suffix: "+" },
+  { value: "24ч", label: "Ответ на заявку", hint: "в будни — быстрее", num: 24, suffix: "ч" },
   { value: "∞", label: "Готовность работать", hint: "и учиться под задачу" },
 ];
 
@@ -372,6 +376,23 @@ function PortfolioMock({
   );
 }
 
+function AnimatedStat({ stat, isActive }: { stat: Stat; isActive: boolean }) {
+  const counter = useAnimatedCounter(stat.num ?? 0, isActive);
+
+  if (stat.value === "∞") {
+    return <>{stat.value}</>;
+  }
+
+  return (
+    <>
+      <span className="count-animate" key={counter}>
+        {counter}
+      </span>
+      {stat.suffix && <span className="stat-card__value-suffix">{stat.suffix}</span>}
+    </>
+  );
+}
+
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -379,6 +400,22 @@ function App() {
   const [wordIndex, setWordIndex] = useState(0);
 
   const [scrolled, setScrolled] = useState(false);
+  const scrollProgress = useScrollProgress();
+  const mousePos = useMousePosition();
+
+  const aboutView = useInView<HTMLElement>({ threshold: 0.08 });
+  const servicesView = useInView<HTMLElement>({ threshold: 0.06 });
+  const statsView = useInView<HTMLElement>({ threshold: 0.25 });
+  const processView = useInView<HTMLElement>({ threshold: 0.06 });
+  const portfolioView = useInView<HTMLElement>({ threshold: 0.05 });
+  const stackView = useInView<HTMLElement>({ threshold: 0.08 });
+  const ctaView = useInView<HTMLElement>({ threshold: 0.1 });
+  const faqView = useInView<HTMLElement>({ threshold: 0.06 });
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--mx", `${mousePos.x}%`);
+    document.documentElement.style.setProperty("--my", `${mousePos.y}%`);
+  }, [mousePos]);
 
   useEffect(() => {
     const id = window.setInterval(
@@ -420,6 +457,7 @@ function App() {
 
   return (
     <main id="top">
+      <div className="scroll-progress" style={{ width: `${scrollProgress * 100}%` }} aria-hidden="true" />
       <div className={`header-bar${scrolled ? " is-stuck" : ""}`}>
       <header className="site-header shell">
         <button
@@ -475,7 +513,12 @@ function App() {
       </nav>
 
       <section className="hero shell" aria-labelledby="hero-title">
-        <img className="hero__image" src="/images/hero-ocean.jpg" alt="Спокойное синее море до горизонта" />
+        <div
+          className="hero__image-wrap hero__parallax-layer"
+          style={{ transform: `translate(${(mousePos.x - 50) * -0.03}px, ${(mousePos.y - 50) * -0.03}px)` }}
+        >
+          <img className="hero__image" src="/images/hero-ocean.jpg" alt="Спокойное синее море до горизонта" />
+        </div>
         <div className="hero__wash" />
         <p className="hero__quality">Комплексность</p>
         <h1 id="hero-title">
@@ -494,7 +537,7 @@ function App() {
         <p className="hero__tag">#Диджитал развитие м/с бизнеса<span className="orange">.</span></p>
       </section>
 
-      <section className="about shell" id="about" aria-labelledby="about-title">
+      <section className={`about shell reveal${aboutView.isInView ? " is-visible" : ""}`} id="about" aria-labelledby="about-title" ref={aboutView.ref}>
         <div className="about__panel">
           <div>
             <h2 id="about-title">DDVG—</h2>
@@ -512,9 +555,9 @@ function App() {
         <div className="about__monogram" aria-hidden="true">DD<span>VG</span></div>
       </section>
 
-      <section className="services shell" id="services" aria-label="Услуги">
+      <section className={`services shell reveal${servicesView.isInView ? " is-visible" : ""}`} id="services" aria-label="Услуги" ref={servicesView.ref}>
         {services.map((service, index) => (
-          <article className={`service-card ${service.tone}`} key={service.id}>
+          <article className={`service-card ${service.tone} reveal reveal--d${index + 1}${servicesView.isInView ? " is-visible" : ""}`} key={service.id}>
             <img src={service.image} alt="" />
             <div className="service-card__veil" />
             <ServiceMark id={service.id} />
@@ -527,17 +570,23 @@ function App() {
         ))}
       </section>
 
-      <section className="stats shell" aria-label="Цифры">
+      <section className={`stats shell reveal${statsView.isInView ? " is-visible" : ""}`} aria-label="Цифры" ref={statsView.ref}>
         {stats.map((stat) => (
-          <div className="stat-card" key={stat.label}>
-            <p className="stat-card__value">{stat.value}</p>
+          <div className={`stat-card reveal reveal--d${stats.indexOf(stat) + 1}${statsView.isInView ? " is-visible" : ""}`} key={stat.label}>
+            <p className="stat-card__value">
+              {stat.num !== undefined ? (
+                <AnimatedStat stat={stat} isActive={statsView.isInView} />
+              ) : (
+                stat.value
+              )}
+            </p>
             <p className="stat-card__label">{stat.label}</p>
             {stat.hint && <p className="stat-card__hint">{stat.hint}</p>}
           </div>
         ))}
       </section>
 
-      <section className="process shell" id="process" aria-labelledby="process-title">
+      <section className={`process shell reveal${processView.isInView ? " is-visible" : ""}`} id="process" aria-labelledby="process-title" ref={processView.ref}>
         <header className="process__head">
           <span className="section-label section-label--static">Процесс</span>
           <h2 id="process-title">
@@ -547,7 +596,7 @@ function App() {
         </header>
         <div className="process__grid">
           {steps.map((step) => (
-            <article className="process-card" key={step.num}>
+            <article className={`process-card reveal reveal--d${+step.num}${processView.isInView ? " is-visible" : ""}`} key={step.num}>
               <div className="process-card__top">
                 <span className="process-card__num">{step.num}</span>
                 <span className="process-card__duration">{step.duration}</span>
@@ -559,7 +608,7 @@ function App() {
         </div>
       </section>
 
-      <section className="portfolio shell" id="portfolio" aria-labelledby="portfolio-title">
+      <section className={`portfolio shell reveal${portfolioView.isInView ? " is-visible" : ""}`} id="portfolio" aria-labelledby="portfolio-title" ref={portfolioView.ref}>
         <header className="portfolio__head">
           <span className="section-label section-label--static">Портфолио</span>
           <h2 id="portfolio-title">
@@ -572,7 +621,7 @@ function App() {
         </header>
         <div className="portfolio__grid">
           {portfolio.map((item, index) => (
-            <article className="portfolio-card" key={item.id}>
+            <article className={`portfolio-card reveal reveal--d${index + 1}${portfolioView.isInView ? " is-visible" : ""}`} key={item.id}>
               <div
                 className="portfolio-card__preview"
                 style={{ background: item.palette.bg, color: item.palette.text }}
@@ -598,7 +647,7 @@ function App() {
         </div>
       </section>
 
-      <section className="stack shell" id="stack" aria-labelledby="stack-title">
+      <section className={`stack shell reveal${stackView.isInView ? " is-visible" : ""}`} id="stack" aria-labelledby="stack-title" ref={stackView.ref}>
         <div className="stack__intro">
           <span className="section-label section-label--static">Стек</span>
           <h2 id="stack-title">
@@ -608,7 +657,7 @@ function App() {
         </div>
         <div className="stack__grid">
           {tools.map((tool) => (
-            <article className="tool-card" key={tool.name}>
+            <article className={`tool-card reveal reveal--d${tools.indexOf(tool) + 1}${stackView.isInView ? " is-visible" : ""}`} key={tool.name}>
               <span
                 className="tool-card__badge"
                 style={{ background: tool.color }}
@@ -623,7 +672,7 @@ function App() {
         </div>
       </section>
 
-      <section className="cta-note shell" aria-label="Первый клиент">
+      <section className={`cta-note shell reveal${ctaView.isInView ? " is-visible" : ""}`} aria-label="Первый клиент" ref={ctaView.ref}>
         <div className="cta-note__inner">
           <span className="cta-note__badge">Первый клиент</span>
           <h2>
@@ -643,7 +692,7 @@ function App() {
         </div>
       </section>
 
-      <section className="faq shell" id="faq" aria-labelledby="faq-title">
+      <section className={`faq shell reveal${faqView.isInView ? " is-visible" : ""}`} id="faq" aria-labelledby="faq-title" ref={faqView.ref}>
         <header className="faq__head">
           <span className="section-label section-label--static">FAQ</span>
           <h2 id="faq-title">
@@ -657,7 +706,7 @@ function App() {
               <button
                 key={item.q}
                 type="button"
-                className={`faq-item${isOpen ? " is-open" : ""}`}
+                className={`faq-item reveal reveal--d${index + 1}${faqView.isInView ? " is-visible" : ""}${isOpen ? " is-open" : ""}`}
                 onClick={() => setOpenFaq(isOpen ? null : index)}
                 aria-expanded={isOpen}
               >
