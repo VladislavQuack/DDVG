@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
 type Service = {
   id: string;
@@ -8,7 +8,7 @@ type Service = {
   tone: string;
 };
 
-type Stat = { value: string; label: string; hint?: string };
+type Stat = { value: string; label: string; hint?: string; countTo?: number; suffix?: string };
 type Step = { num: string; title: string; text: string; duration: string };
 type PortfolioItem = {
   id: string;
@@ -23,9 +23,9 @@ type Tool = { name: string; category: string; letter: string; color: string };
 type Faq = { q: string; a: string };
 
 const stats: Stat[] = [
-  { value: "3", label: "Проекта в портфолио", hint: "личные и учебные работы" },
-  { value: "5+", label: "Технологий в стеке", hint: "React, TS, Tailwind, Vite, Blender" },
-  { value: "24ч", label: "Ответ на заявку", hint: "в будни — быстрее" },
+  { value: "3", countTo: 3, label: "Проекта в портфолио", hint: "личные и учебные работы" },
+  { value: "5+", countTo: 5, suffix: "+", label: "Технологий в стеке", hint: "React, TS, Tailwind, Vite, Blender" },
+  { value: "24ч", countTo: 24, suffix: "ч", label: "Ответ на заявку", hint: "в будни — быстрее" },
   { value: "∞", label: "Готовность работать", hint: "и учиться под задачу" },
 ];
 
@@ -113,6 +113,10 @@ const tools: Tool[] = [
 ];
 
 const heroWords = ["CRM", "Вебсайт", "Рекламу", "Айдентику", "Дизайн", "Моушн"];
+const heroTicker = ["React", "TypeScript", "Tailwind", "CRM", "Motion", "Analytics", "Vite", "UX"];
+
+const revealDelay = (index: number, step = 80): CSSProperties =>
+  ({ "--reveal-delay": `${index * step}ms` } as CSSProperties);
 
 const faqs: Faq[] = [
   {
@@ -280,6 +284,126 @@ function ServiceMark({ id }: { id: string }) {
   return <span className="service-logo service-logo--canva" aria-hidden="true">Canva</span>;
 }
 
+function AnimatedStatValue({ to, suffix = "" }: { to: number; suffix?: string }) {
+  const nodeRef = useRef<HTMLSpanElement>(null);
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setCurrent(to);
+      return;
+    }
+
+    let frameId = 0;
+    let started = false;
+    let startTime: number | null = null;
+    const duration = 1350;
+
+    const animate = (time: number) => {
+      if (startTime === null) startTime = time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCurrent(Math.round(to * eased));
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(animate);
+      }
+    };
+
+    const start = () => {
+      if (started) return;
+      started = true;
+      frameId = window.requestAnimationFrame(animate);
+    };
+
+    if (!("IntersectionObserver" in window)) {
+      start();
+      return () => window.cancelAnimationFrame(frameId);
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          start();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.45 }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [to]);
+
+  return <span ref={nodeRef}>{current}{suffix}</span>;
+}
+
+function StatCard({ stat, index }: { stat: Stat; index: number }) {
+  return (
+    <div className="stat-card" data-reveal style={revealDelay(index)}>
+      <p className="stat-card__value">
+        {typeof stat.countTo === "number" ? (
+          <AnimatedStatValue to={stat.countTo} suffix={stat.suffix} />
+        ) : (
+          <span className="stat-card__infinity">{stat.value}</span>
+        )}
+      </p>
+      <p className="stat-card__label">{stat.label}</p>
+      {stat.hint && <p className="stat-card__hint">{stat.hint}</p>}
+    </div>
+  );
+}
+
+function ServiceCard({ service, index }: { service: Service; index: number }) {
+  const handlePointerMove = (event: MouseEvent<HTMLElement>) => {
+    const card = event.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const rotateY = ((x / rect.width) - 0.5) * 7;
+    const rotateX = (0.5 - y / rect.height) * 7;
+
+    card.style.setProperty("--mx", `${x}px`);
+    card.style.setProperty("--my", `${y}px`);
+    card.style.setProperty("--rx", `${rotateX}deg`);
+    card.style.setProperty("--ry", `${rotateY}deg`);
+  };
+
+  const handlePointerLeave = (event: MouseEvent<HTMLElement>) => {
+    const card = event.currentTarget;
+    card.style.setProperty("--mx", "50%");
+    card.style.setProperty("--my", "50%");
+    card.style.setProperty("--rx", "0deg");
+    card.style.setProperty("--ry", "0deg");
+  };
+
+  return (
+    <article
+      className={`service-card ${service.tone}`}
+      data-reveal
+      style={revealDelay(index)}
+      onMouseMove={handlePointerMove}
+      onMouseLeave={handlePointerLeave}
+    >
+      <img src={service.image} alt="" />
+      <div className="service-card__veil" />
+      <ServiceMark id={service.id} />
+      <div className="service-card__copy">
+        <h2>{service.title}</h2>
+        <p>{service.description}</p>
+      </div>
+      <span className="service-card__index" aria-hidden="true">0{index + 1}</span>
+    </article>
+  );
+}
+
 function PortfolioMock({
   kind,
   palette,
@@ -396,6 +520,58 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const root = document.documentElement;
+    const onPointerMove = (event: PointerEvent) => {
+      root.style.setProperty("--cursor-x", `${event.clientX}px`);
+      root.style.setProperty("--cursor-y", `${event.clientY}px`);
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onPointerMove);
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    document.documentElement.classList.add("motion-ready");
+    const revealItems = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+
+    if (!("IntersectionObserver" in window)) {
+      revealItems.forEach((item) => item.classList.add("is-visible"));
+      return;
+    }
+
+    const revealTimers: number[] = [];
+    const reveal = (target: Element) => {
+      const delay = Number.parseFloat(
+        window.getComputedStyle(target as HTMLElement).getPropertyValue("--reveal-delay")
+      ) || 0;
+      const timer = window.setTimeout(() => target.classList.add("is-visible"), delay);
+      revealTimers.push(timer);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            reveal(entry.target);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.16, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    revealItems.forEach((item) => observer.observe(item));
+    return () => {
+      observer.disconnect();
+      revealTimers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  useEffect(() => {
     document.body.classList.toggle("no-scroll", menuOpen || contactOpen);
     return () => document.body.classList.remove("no-scroll");
   }, [menuOpen, contactOpen]);
@@ -420,6 +596,7 @@ function App() {
 
   return (
     <main id="top">
+      <div className="page-ambient" aria-hidden="true" />
       <div className={`header-bar${scrolled ? " is-stuck" : ""}`}>
       <header className="site-header shell">
         <button
@@ -477,6 +654,32 @@ function App() {
       <section className="hero shell" aria-labelledby="hero-title">
         <img className="hero__image" src="/images/hero-ocean.jpg" alt="Спокойное синее море до горизонта" />
         <div className="hero__wash" />
+        <div className="hero__tech-grid" aria-hidden="true" />
+        <div className="hero__orb hero__orb--one" aria-hidden="true" />
+        <div className="hero__orb hero__orb--two" aria-hidden="true" />
+        <div className="hero__hud" aria-hidden="true">
+          <div className="hero__hud-top">
+            <span className="hero__status-dot" />
+            <span>Live build</span>
+            <strong>DDVG</strong>
+          </div>
+          <div className="hero__terminal">
+            <span><i />npm run build</span>
+            <span><i />React + TypeScript</span>
+            <span><i />Motion-ready UI</span>
+          </div>
+          <div className="hero__hud-metrics">
+            <span>Typed UI</span>
+            <span>Fast build</span>
+          </div>
+        </div>
+        <div className="hero__marquee" aria-hidden="true">
+          <div className="hero__ticker-track">
+            {[...heroTicker, ...heroTicker].map((item, index) => (
+              <span key={`${item}-${index}`}>{item}</span>
+            ))}
+          </div>
+        </div>
         <p className="hero__quality">Комплексность</p>
         <h1 id="hero-title">
           <span className="hero__line">Давай</span>
@@ -494,7 +697,7 @@ function App() {
         <p className="hero__tag">#Диджитал развитие м/с бизнеса<span className="orange">.</span></p>
       </section>
 
-      <section className="about shell" id="about" aria-labelledby="about-title">
+      <section className="about shell" id="about" aria-labelledby="about-title" data-reveal>
         <div className="about__panel">
           <div>
             <h2 id="about-title">DDVG—</h2>
@@ -514,31 +717,18 @@ function App() {
 
       <section className="services shell" id="services" aria-label="Услуги">
         {services.map((service, index) => (
-          <article className={`service-card ${service.tone}`} key={service.id}>
-            <img src={service.image} alt="" />
-            <div className="service-card__veil" />
-            <ServiceMark id={service.id} />
-            <div className="service-card__copy">
-              <h2>{service.title}</h2>
-              <p>{service.description}</p>
-            </div>
-            <span className="service-card__index" aria-hidden="true">0{index + 1}</span>
-          </article>
+          <ServiceCard service={service} index={index} key={service.id} />
         ))}
       </section>
 
       <section className="stats shell" aria-label="Цифры">
-        {stats.map((stat) => (
-          <div className="stat-card" key={stat.label}>
-            <p className="stat-card__value">{stat.value}</p>
-            <p className="stat-card__label">{stat.label}</p>
-            {stat.hint && <p className="stat-card__hint">{stat.hint}</p>}
-          </div>
+        {stats.map((stat, index) => (
+          <StatCard stat={stat} index={index} key={stat.label} />
         ))}
       </section>
 
       <section className="process shell" id="process" aria-labelledby="process-title">
-        <header className="process__head">
+        <header className="process__head" data-reveal>
           <span className="section-label section-label--static">Процесс</span>
           <h2 id="process-title">
             Как я веду проект<span className="orange">.</span>
@@ -547,7 +737,7 @@ function App() {
         </header>
         <div className="process__grid">
           {steps.map((step) => (
-            <article className="process-card" key={step.num}>
+            <article className="process-card" key={step.num} data-reveal style={revealDelay(Number(step.num) - 1, 65)}>
               <div className="process-card__top">
                 <span className="process-card__num">{step.num}</span>
                 <span className="process-card__duration">{step.duration}</span>
@@ -560,7 +750,7 @@ function App() {
       </section>
 
       <section className="portfolio shell" id="portfolio" aria-labelledby="portfolio-title">
-        <header className="portfolio__head">
+        <header className="portfolio__head" data-reveal>
           <span className="section-label section-label--static">Портфолио</span>
           <h2 id="portfolio-title">
             Три моих сайта<span className="orange">.</span>
@@ -572,7 +762,7 @@ function App() {
         </header>
         <div className="portfolio__grid">
           {portfolio.map((item, index) => (
-            <article className="portfolio-card" key={item.id}>
+            <article className="portfolio-card" key={item.id} data-reveal style={revealDelay(index, 90)}>
               <div
                 className="portfolio-card__preview"
                 style={{ background: item.palette.bg, color: item.palette.text }}
@@ -599,7 +789,7 @@ function App() {
       </section>
 
       <section className="stack shell" id="stack" aria-labelledby="stack-title">
-        <div className="stack__intro">
+        <div className="stack__intro" data-reveal>
           <span className="section-label section-label--static">Стек</span>
           <h2 id="stack-title">
             Работаю на современных<br />инструментах<span className="orange">.</span>
@@ -607,8 +797,8 @@ function App() {
           <p>Технологии выбираю под задачу, а не под моду. Ниже — то, что использую чаще всего.</p>
         </div>
         <div className="stack__grid">
-          {tools.map((tool) => (
-            <article className="tool-card" key={tool.name}>
+          {tools.map((tool, index) => (
+            <article className="tool-card" key={tool.name} data-reveal style={revealDelay(index, 45)}>
               <span
                 className="tool-card__badge"
                 style={{ background: tool.color }}
@@ -623,7 +813,7 @@ function App() {
         </div>
       </section>
 
-      <section className="cta-note shell" aria-label="Первый клиент">
+      <section className="cta-note shell" aria-label="Первый клиент" data-reveal>
         <div className="cta-note__inner">
           <span className="cta-note__badge">Первый клиент</span>
           <h2>
@@ -644,7 +834,7 @@ function App() {
       </section>
 
       <section className="faq shell" id="faq" aria-labelledby="faq-title">
-        <header className="faq__head">
+        <header className="faq__head" data-reveal>
           <span className="section-label section-label--static">FAQ</span>
           <h2 id="faq-title">
             Частые вопросы<span className="orange">.</span>
@@ -658,6 +848,8 @@ function App() {
                 key={item.q}
                 type="button"
                 className={`faq-item${isOpen ? " is-open" : ""}`}
+                data-reveal
+                style={revealDelay(index, 55)}
                 onClick={() => setOpenFaq(isOpen ? null : index)}
                 aria-expanded={isOpen}
               >
@@ -679,6 +871,7 @@ function App() {
       <section className="contact shell" id="contact" aria-labelledby="contact-title">
         <div
           className="contact__canvas"
+          data-reveal
           role="button"
           tabIndex={0}
           onClick={() => setContactOpen(true)}
