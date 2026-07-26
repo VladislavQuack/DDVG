@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, CSSProperties, MouseEvent } from "react";
 import { useInView } from "@/hooks/useInView";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { useAnimatedCounter } from "@/hooks/useAnimatedCounter";
@@ -125,7 +125,7 @@ const revealDelay = (index: number, step = 80): CSSProperties =>
 const faqs: Faq[] = [
   {
     q: "Сколько стоит проект?",
-    a: "Стоимость зависит от объёма: сайт-визитка от 45 000 ₽, внедрение онлайн-записи от 25 000 ₽, комплексный проект — по смете после короткого созвона.",
+    a: "Стоимость зависит от объёма: сайт-визитка от 45 000 ₽, внедрение онлайн-записи от 25 000 ₽, комплексный проект от 100 000 ₽.",
   },
   {
     q: "Как быстро вы запускаете сайт?",
@@ -133,11 +133,11 @@ const faqs: Faq[] = [
   },
   {
     q: "На кого рассчитаны ваши услуги?",
-    a: "В первую очередь — малый и средний бизнес. Это сегмент, где я вижу максимальный эффект от диджитала и где могу быстро запуститься.",
+    a: "В первую очередь — малый и средний бизнес. Это сегмент, где я вижу максимальный эффект от диджитала и готов работать лучше всего.",
   },
   {
     q: "У вас уже есть клиенты?",
-    a: "Пока я собираю портфолио на своих демо-проектах и открыт к первым заказам. Готов сделать первый коммерческий проект с особыми условиями — напишите, обсудим.",
+    a: "Пока я собираю портфолио на своих демо-проектах и открыт к первым заказам. Готов сделать первый коммерческий проект особых условиях.",
   },
   {
     q: "Что с поддержкой после запуска?",
@@ -353,8 +353,8 @@ function StatCard({ stat, index }: { stat: Stat; index: number }) {
   return (
     <div className="stat-card" data-reveal style={revealDelay(index)}>
       <p className="stat-card__value">
-        {typeof stat.countTo === "number" ? (
-          <AnimatedStatValue to={stat.countTo} suffix={stat.suffix} />
+        {typeof stat.num === "number" ? (
+          <AnimatedStatValue to={stat.num} suffix={stat.suffix} />
         ) : (
           <span className="stat-card__infinity">{stat.value}</span>
         )}
@@ -635,40 +635,40 @@ function App() {
     <main id="top">
       <div className="scroll-progress" style={{ width: `${scrollProgress * 100}%` }} aria-hidden="true" />
       <div className={`header-bar${scrolled ? " is-stuck" : ""}`}>
-      <header className="site-header shell">
-        <button
-          className="menu-button menu-button--mobile"
-          type="button"
-          onClick={() => setMenuOpen((value) => !value)}
-          aria-expanded={menuOpen}
-          aria-controls="site-navigation"
-          aria-label="Открыть меню"
-        >
-          <MenuIcon open={menuOpen} />
-          <span>Меню</span>
-        </button>
+        <header className="site-header shell">
+          <button
+            className="menu-button menu-button--mobile"
+            type="button"
+            onClick={() => setMenuOpen((value) => !value)}
+            aria-expanded={menuOpen}
+            aria-controls="site-navigation"
+            aria-label="Открыть меню"
+          >
+            <MenuIcon open={menuOpen} />
+            <span>Меню</span>
+          </button>
 
-        <nav className="nav-dock" aria-label="Основная навигация">
-          {navLinks.map((link) => (
-            <button
-              key={link.id}
-              type="button"
-              className="nav-dock__item"
-              onClick={() => goTo(`#${link.id}`)}
-            >
-              <span className="nav-dock__icon" aria-hidden="true">
-                <NavIcon name={link.icon} />
-              </span>
-              <span className="nav-dock__label">{link.label}</span>
-            </button>
-          ))}
-        </nav>
+          <nav className="nav-dock" aria-label="Основная навигация">
+            {navLinks.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                className="nav-dock__item"
+                onClick={() => goTo(`#${link.id}`)}
+              >
+                <span className="nav-dock__icon" aria-hidden="true">
+                  <NavIcon name={link.icon} />
+                </span>
+                <span className="nav-dock__label">{link.label}</span>
+              </button>
+            ))}
+          </nav>
 
-        <BrandMark />
-        <button className="project-button" type="button" onClick={() => setContactOpen(true)}>
-          Начать проект
-        </button>
-      </header>
+          <BrandMark />
+          <button className="project-button" type="button" onClick={() => setContactOpen(true)}>
+            Начать проект
+          </button>
+        </header>
       </div>
 
       <nav
@@ -749,7 +749,7 @@ function App() {
             </p>
           </div>
           <p className="about__copy">
-            Я специализируюсь на малом и среднем бизнесе и предлагаю вам услуги развития не только своего бренда, но и внедрения технологий для автоматизации бизнеса.
+            Я специализируюсь на малом и среднем бизнесе и предлагаю вам услуги развития не только своего бренда, но и продаж.
           </p>
         </div>
         <button className="section-label about__label" type="button" onClick={() => goTo("#about")}>О мне</button>
@@ -823,7 +823,6 @@ function App() {
         </header>
         <div className="portfolio__grid">
           {portfolio.map((item, index) => (
-            <article className={`portfolio-card reveal reveal--d${index + 1}${portfolioView.isInView ? " is-visible" : ""}`} key={item.id}>
             <article className="portfolio-card" key={item.id} data-reveal style={revealDelay(index, 90)}>
               <div
                 className="portfolio-card__preview"
@@ -875,7 +874,6 @@ function App() {
         </div>
       </section>
 
-      <section className={`cta-note shell reveal${ctaView.isInView ? " is-visible" : ""}`} aria-label="Первый клиент" ref={ctaView.ref}>
       <section className="cta-note shell" aria-label="Первый клиент" data-reveal>
         <div className="cta-note__inner">
           <span className="cta-note__badge">Первый клиент</span>
@@ -897,8 +895,6 @@ function App() {
       </section>
 
       <section className={`faq shell reveal${faqView.isInView ? " is-visible" : ""}`} id="faq" aria-labelledby="faq-title" ref={faqView.ref}>
-        <header className="faq__head">
-      <section className="faq shell" id="faq" aria-labelledby="faq-title">
         <header className="faq__head" data-reveal>
           <span className="section-label section-label--static">FAQ</span>
           <h2 id="faq-title">
@@ -912,7 +908,6 @@ function App() {
               <button
                 key={item.q}
                 type="button"
-                className={`faq-item reveal reveal--d${index + 1}${faqView.isInView ? " is-visible" : ""}${isOpen ? " is-open" : ""}`}
                 className={`faq-item${isOpen ? " is-open" : ""}`}
                 data-reveal
                 style={revealDelay(index, 55)}
@@ -1010,7 +1005,7 @@ function App() {
             </a>
             <a className="dialog-actions__btn dialog-actions__btn--wa" href="https://wa.me/" target="_blank" rel="noreferrer">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z" />
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.7 2.93l-2.22 1.65a16 16 0 0 0 6 6l1.65-2.22a2 2 0 0 1 2.93-.7c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
               Написать в WhatsApp
             </a>
